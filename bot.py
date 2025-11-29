@@ -75,6 +75,14 @@ class TelegramBot:
             
         return self.make_request('sendPhoto', params)
     
+    def delete_message(self, chat_id, message_id):
+        """حذف رسالة محددة"""
+        params = {
+            'chat_id': chat_id,
+            'message_id': message_id
+        }
+        return self.make_request('deleteMessage', params)
+    
     def create_main_menu(self):
         """إنشاء قائمة الأزرار الرئيسية"""
         keyboard = {
@@ -89,6 +97,12 @@ class TelegramBot:
                     {
                         "text": "🔐 بدأ تشفير الرسائل",
                         "callback_data": "start_encryption"
+                    }
+                ],
+                [
+                    {
+                        "text": "🗑️ مسح المحادثة",
+                        "callback_data": "clear_chat"
                     }
                 ]
             ]
@@ -138,6 +152,9 @@ class TelegramBot:
 📝 <b>الكلمات المشفرة:</b>
 بيع، شراء، سعر، متجر، عروض، كميه، وغيرها...
 
+🔧 <b>الأوامر المتاحة:</b>
+• <code>~امسح~</code> - مسح المحادثة
+
 <code>اختر أحد الخيارات أدناه:</code>"""
         
         reply_markup = self.create_main_menu()
@@ -155,17 +172,46 @@ class TelegramBot:
 <b>ستصبح:</b>
 <code>أريد بـ،ـيع هاتف بسـ،ـعر جيد ومتـ،ـوفر كـ،ـميات كبيرة</code>
 
+🔧 <b>للمسح:</b> اكتب <code>~امسح~</code>
+
 ✍️ <b>اكتب رسالتك الآن:</b>"""
         
         return self.send_message(chat_id, message)
+    
+    def clear_chat_messages(self, chat_id, user_message_id):
+        """محاولة مسح رسائل المحادثة"""
+        try:
+            # حذف رسالة الأمر الأولى
+            self.delete_message(chat_id, user_message_id)
+            
+            # إرسال رسالة تأكيد ثم حذفها بعد ثواني
+            result = self.send_message(chat_id, "🗑️ جاري مسح الرسائل...")
+            if result and result.get('ok'):
+                time.sleep(2)
+                self.delete_message(chat_id, result['result']['message_id'])
+            
+            # إرسال رسالة نهائية
+            self.send_message(chat_id, "✅ تم مسح الرسائل بنجاح!")
+            return True
+            
+        except Exception as e:
+            print(f"❌ خطأ في مسح الرسائل: {e}")
+            self.send_message(chat_id, "❌ لم أستطع مسح بعض الرسائل")
+            return False
     
     def process_message(self, message):
         """معالجة الرسالة"""
         if 'text' in message:
             original_text = message['text']
             chat_id = message['chat']['id']
+            message_id = message['message_id']
             
             print(f"📩 رسالة من {message['chat'].get('first_name', 'مستخدم')}: {original_text}")
+            
+            # ✅ أمر مسح المحادثة
+            if original_text.strip() == '~امسح~':
+                self.clear_chat_messages(chat_id, message_id)
+                return
             
             # إذا كانت رسالة start أو بداية محادثة
             if original_text in ['/start', 'start', 'بدء']:
@@ -180,7 +226,9 @@ class TelegramBot:
 
 <code>{encrypted_text}</code>
 
-🔒 <b>تم تشفير الكلمات الحساسة بنجاح</b>"""
+🔒 <b>تم تشفير الكلمات الحساسة بنجاح</b>
+
+🔧 <b>للمسح:</b> اكتب <code>~امسح~</code>"""
                 self.send_message(chat_id, response)
                 print(f"✅ تم تشفير رسالة")
             else:
@@ -189,7 +237,9 @@ class TelegramBot:
 
 الكلمات المدعومة: بيع، شراء، سعر، متجر، عروض، كميه، إلخ...
 
-<code>جرب كتابة رسالة تحتوي على كلمات حساسة</code>"""
+<code>جرب كتابة رسالة تحتوي على كلمات حساسة</code>
+
+🔧 <b>للمسح:</b> اكتب <code>~امسح~</code>"""
                 self.send_message(chat_id, response)
     
     def process_callback_query(self, callback_query):
@@ -199,6 +249,8 @@ class TelegramBot:
         
         if data == "start_encryption":
             self.send_encryption_instructions(chat_id)
+        elif data == "clear_chat":
+            self.send_message(chat_id, "🔧 لمسح المحادثة، اكتب: <code>~امسح~</code>")
     
     def run(self):
         """دالة التشغيل الرئيسية"""
