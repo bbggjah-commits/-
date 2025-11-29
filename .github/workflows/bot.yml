@@ -3,6 +3,8 @@ name: Telegram Bot 24/7
 on:
   push:
     branches: [ main ]
+  schedule:
+    - cron: '0 */5 * * *'
   workflow_dispatch:
 
 jobs:
@@ -19,8 +21,7 @@ jobs:
         python-version: '3.9'
         
     - name: 🚀 تشغيل البوت
-      env:
-        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       run: |
         echo "🔧 بدء تشغيل البوت..."
+        # التوكن مباشرة في الكود (للتجربة فقط)
         python bot.py
